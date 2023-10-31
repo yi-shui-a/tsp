@@ -364,6 +364,9 @@ if __name__ == '__main__':
         trend.append(now_dist)
         print(cnt, "次降温，温度为：", T, " 路程长度为：", now_dist)
     distance = totaldistance(ans0)
+    for j in range(n):
+        print(city_dist[ans0[j]][ans0[j + 1]]," ",end="")
+    print("\n")
     print(distance, ans0)
     plt.plot(trend)
     plt.show()

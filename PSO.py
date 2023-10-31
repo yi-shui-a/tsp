@@ -21,21 +21,20 @@ class PSO():
 
     # PSO参数设置
     def __init__(self, pN, dim, max_iter):
-        self.pN = pN  # 粒子数量，即城市的数量
+        self.pN = pN  # 粒子数量，
         self.dim = dim  # 搜索维度,即结果的维度，应该与城市的数量相同
         self.w = 0.8  # 惯性权值
-        self.c1 = 2  # 学习因子，自我学习
-        self.c2 = 2  # 学习因子，群体最优学习
-        self.r1 = 0.6  # 均匀随机值
-        self.r2 = 0.3  # 均匀随机值
+        # self.c1 = 2  # 学习因子，自我学习
+        # self.c2 = 2  # 学习因子，群体最优学习
+        self.r1 = 0.5  # 本地随机值
+        self.r2 = 0.7  # 全局随机值
         self.max_iter = max_iter  # 迭代次数
-        self.X = np.zeros((self.pN, self.dim))  # 所有粒子的位置
+        self.X = np.zeros((self.pN, self.dim), dtype=int)  # 所有粒子的位置
         # self.V = np.zeros((self.pN, self.dim))  # 所有粒子的速度
-        self.p_best = np.zeros((self.pN, self.dim))  # 个体经历的最佳位置和全局最佳位置
-        self.g_best = np.zeros(self.dim)  # 全局最佳位置
-        self.p_fit = np.zeros(self.pN)  # 每个个体的历史最佳适应值
+        self.p_best = np.zeros((self.pN, self.dim), dtype=int)  # 个体经历的最佳位置
+        self.g_best = np.zeros(self.dim, dtype=int)  # 全局最佳位置
+        self.p_fit = np.zeros(self.pN, dtype=int)  # 每个个体的历史最佳适应值
         self.g_fit = 1000  # 全局最佳适应值
-
 
     def distance_sum(self, X_list):
         '''
@@ -58,10 +57,10 @@ class PSO():
         :return:
         """
         velocity_ss = []
+        # r = r / (self.w + self.r1 + self.r2)
         for i in range(len(X_i)):
             if X_i[i] != x_best[i]:
                 j = np.where(X_i == x_best[i])[0]
-                print(type(j))
                 so = (i, j, r)  # 得到交换子
                 velocity_ss.append(so)
                 X_i[i], X_i[j] = X_i[j], X_i[i]  # 执行交换操作
@@ -81,13 +80,10 @@ class PSO():
                 X_i[i], X_i[j] = X_i[j], X_i[i]
         return X_i
 
-
     # 初始化种群
     def init_Population(self):
         for i in range(self.pN):  # 因为要随机生成pN个数据，所以需要循环pN次
-            for j in range(self.dim):  # 每一个维度都需要生成速度和位置，故循环dim次，且在0-1之间
-                self.X[i][j] = np.random.choice(list(range(self.city_num)), size=self.city_num, replace=False)
-                # self.V[i][j] = random.uniform(0, 1)
+            self.X[i] = np.random.choice(list(range(self.dim)), size=self.dim, replace=False)
             self.p_best[i] = self.X[i]  # 其实就是给self.p_best定值，将当前值定为最优值
             tmp = self.distance_sum(self.X[i])  # 得到现在最优，tmp是当前适应值
             self.p_fit[i] = tmp  # 这个个体历史最佳的位置
@@ -98,8 +94,8 @@ class PSO():
     # 更新粒子位置
     def iterator(self):
         fitness = []
-        for t in range(self.max_iter):  # 迭代次数，不是越多越好
-            for i in range(self.pN):  # 更新gbest和pbest
+        for step in range(self.max_iter):  # 迭代次数，不是越多越好
+            for i in range(self.pN):  # 更新g_best和p_best
                 temp = self.distance_sum(self.X[i])
                 if temp < self.p_fit[i]:  # 更新个体最优
                     self.p_fit[i] = temp
@@ -107,27 +103,37 @@ class PSO():
                     if self.p_fit[i] < self.g_fit:  # 更新全局最优
                         self.g_best = self.X[i]
                         self.g_fit = self.p_fit[i]
-            for i in range(self.pN):
-                self.V[i] = self.w * self.V[i] + self.c1 * self.r1 * (self.p_best[i] - self.X[i]) + \
-                            self.c2 * self.r2 * (self.g_best - self.X[i])
-                self.X[i] = self.X[i] + self.V[i]
+
+                # 计算交换序列，即 v = r1(p_best-xi) + r2(g_best-xi)
+                ss1 = self.get_ss(self.p_best[i], self.X[i], self.r1)
+                ss2 = self.get_ss(self.g_best, self.X[i], self.r2)
+                ss = ss1 + ss2
+                self.X[i] = self.do_ss(self.X[i], ss)
+
             fitness.append(self.g_fit)
-            print(self.X[0], end=" ")
-            print(self.g_fit)  # 输出最优值
+            # print(self.X[0], end=" ")
+            print("第 {} 轮迭代，最优答案：".format(step), self.g_fit)  # 输出最优值
         return fitness
 
 
 if __name__ == "__main__":
     # 程序
-    my_pso = PSO(pN=len(distance_list), dim=len(distance_list), max_iter=100)
+    max_iter = 150
+    my_pso = PSO(pN=500, dim=len(distance_list), max_iter=max_iter)
     my_pso.init_Population()
     fitness = my_pso.iterator()
+    # 输出结果
+    print("路线：", my_pso.g_best)
+    print("路径长度")
+    for i in range(len(my_pso.g_best) - 1):
+        print(distance_list[my_pso.g_best[i]][my_pso.g_best[i + 1]], " ", end="")
+    print("\n总里程", my_pso.distance_sum(my_pso.g_best))
     # 画图
-    # plt.figure(1)
-    # plt.title("Figure1")
-    # plt.xlabel("iterators", size=14)
-    # plt.ylabel("fitness", size=14)
-    # t = np.array([t for t in range(0, 100)])
-    # fitness = np.array(fitness)
-    # plt.plot(t, fitness, color='b', linewidth=3)
-    # plt.show()
+    plt.figure(1)
+    plt.title("Figure1")
+    plt.xlabel("iterators", size=14)
+    plt.ylabel("fitness", size=14)
+    t = np.array([t for t in range(0, max_iter)])
+    fitness = np.array(fitness)
+    plt.plot(t, fitness, color='b', linewidth=1)
+    plt.show()
